@@ -1,0 +1,10 @@
+[package]
+name = "countdown"
+version = "0.1.0"
+authors = ["Alberto Leal <mailforalberto@gmail.com>"]
+
+[dependencies.chrono]
+version = "0.2"
+
+[dependencies.timer]
+version = "0.1"
