@@ -8,3 +8,17 @@ version = "0.2"
 
 [dependencies.timer]
 version = "0.1"
+
+[dependencies.clap]
+version = "2.3"
+
+[dependencies.chomp]
+git = "https://github.com/m4rw3r/chomp"
+rev = "c1287f2e7ee1558d50a8cab95e1bf900f5a47061"
+# version = "~0.2.5"
+
+[dependencies.chan-signal]
+version = "0.1"
+
+[dependencies.chan]
+version = "0.1"
