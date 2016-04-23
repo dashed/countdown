@@ -3,7 +3,7 @@ countdown
 
 > My countdown app. There are many like it; but this one is mine.
 
-[![asciicast](https://asciinema.org/a/2lddulerd1yt65h5cm14guxbp.png)](https://asciinema.org/a/2lddulerd1yt65h5cm14guxbp)
+![](asciicast.gif)
 
 ```
 gtdtxt v0.1.0 (semver.org)
