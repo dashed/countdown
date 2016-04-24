@@ -122,7 +122,7 @@ fn run(_sdone: chan::Sender<()>, wait_for: u64) {
     // Start counting up.
     let guard = {
       let count_up_seconds = count_up_seconds.clone();
-      timer.schedule_repeating(chrono::Duration::milliseconds(1), move || {
+      timer.schedule_repeating(chrono::Duration::seconds(1), move || {
         *count_up_seconds.lock().unwrap() += 1;
       })
     };
