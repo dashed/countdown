@@ -89,13 +89,15 @@ fn main() {
         println!("Note: {}", cmd_matches.value_of("note").unwrap());
     }
 
+    let count_up_seconds = Arc::new(Mutex::new(0));
+    let count_up_seconds2 = count_up_seconds.clone();
 
     // Signal gets a value when the OS sent a INT or TERM signal.
     let signal = chan_signal::notify(&[Signal::INT, Signal::TERM]);
     // When our work is complete, send a sentinel value on `sdone`.
     let (sdone, rdone) = chan::sync(0);
     // Run work.
-    ::std::thread::spawn(move || run(sdone, wait_for));
+    ::std::thread::spawn(move || run(sdone, wait_for, count_up_seconds));
 
     // Wait for a signal or for work to be done.
     chan_select! {
@@ -105,6 +107,9 @@ fn main() {
             // we capture SIGINT or SIGTERM so we can turn cursor back on
             println!("\x1b[?25h");
             io::stdout().flush().unwrap();
+
+            // display time progressed
+            println!("Counted up {}", Timerange::new(*count_up_seconds2.lock().unwrap()).print());
         },
         rdone.recv() => {
             println!("Program completed normally.");
@@ -113,11 +118,9 @@ fn main() {
 
 }
 
-fn run(_sdone: chan::Sender<()>, wait_for: u64) {
+fn run(_sdone: chan::Sender<()>, wait_for: u64, count_up_seconds: Arc<Mutex<u64>>) {
 
     let timer = timer::Timer::new();
-    // Number of times the callback has been called.
-    let count_up_seconds = Arc::new(Mutex::new(0));
 
     // Start counting up.
     let guard = {
@@ -396,8 +399,8 @@ fn string_ignore_case<'a>(i: Input<'a, u8>, s: &[u8])
     i.replace(&b[s.len()..]).ret(d)
 }
 
-fn prep_pretty(string: String) -> String {
-    format!("{} left", string)
+fn prep_pretty(left: String) -> String {
+    format!("{} left", left)
 }
 
 fn print_line(string: String) {
