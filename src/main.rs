@@ -122,7 +122,7 @@ fn run(_sdone: chan::Sender<()>, wait_for: u64) {
     // Start counting up.
     let guard = {
       let count_up_seconds = count_up_seconds.clone();
-      timer.schedule_repeating(chrono::Duration::seconds(1), move || {
+      timer.schedule_repeating(chrono::Duration::milliseconds(1), move || {
         *count_up_seconds.lock().unwrap() += 1;
       })
     };
@@ -132,7 +132,7 @@ fn run(_sdone: chan::Sender<()>, wait_for: u64) {
     print!("\x1b[?25l");
     io::stdout().flush().unwrap();
 
-    let out = prep_pretty(Timerange::new(wait_for - seconds_passed).print());
+    let mut out = prep_pretty(Timerange::new(wait_for - seconds_passed).print());
     print_line(out.clone());
 
     if wait_for > 0 {
@@ -148,10 +148,16 @@ fn run(_sdone: chan::Sender<()>, wait_for: u64) {
             }
 
             seconds_passed = count_result;
+            let diff: u64 = if seconds_passed > wait_for {
+                0
+            } else {
+                wait_for - seconds_passed
+            };
 
 
-            let new_out = prep_pretty(Timerange::new(wait_for - seconds_passed).print());
-            let filler: String = if out.len() > new_out.len() {
+            let new_out = prep_pretty(Timerange::new(diff).print());
+
+            let filler: String = if out.len() >= new_out.len() {
                 String::from_utf8(vec![b' '; out.len() - new_out.len()]).ok().unwrap()
             } else{
                 "".to_string()
@@ -159,10 +165,12 @@ fn run(_sdone: chan::Sender<()>, wait_for: u64) {
 
             print_line(format!("{}{}", new_out, filler));
 
+            out = new_out;
 
             if seconds_passed >= wait_for {
                 break;
             }
+
         }
     }
 
