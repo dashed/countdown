@@ -85,6 +85,8 @@ fn main() {
         }
     };
 
+    println!("Counting down {}", Timerange::new(wait_for).print());
+
     if cmd_matches.is_present("note") {
         println!("Note: {}", cmd_matches.value_of("note").unwrap());
     }
