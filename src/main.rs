@@ -17,6 +17,8 @@ use std::process;
 
 use chan_signal::Signal;
 
+use chrono::offset::local::Local;
+
 use clap::{Arg, App};
 
 // TODO: reorg this
@@ -86,6 +88,7 @@ fn main() {
     };
 
     println!("Counting down {}", Timerange::new(wait_for).print());
+    println!("Began counting at {}", Local::now().naive_local().format("%B %e, %Y %-l:%M:%S %p"));
 
     if cmd_matches.is_present("note") {
         println!("Note: {}", cmd_matches.value_of("note").unwrap());
@@ -184,6 +187,8 @@ fn run(_sdone: chan::Sender<()>, wait_for: u64, count_up_seconds: Arc<Mutex<u64>
 
     // Now drop the guard. This should stop the timer.
     drop(guard);
+
+    println!("Finished counting at {}", Local::now().naive_local().format("%B %e, %Y %-l:%M:%S %p"));
 
 
     // Alarm clock
