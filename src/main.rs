@@ -113,8 +113,12 @@ fn main() {
             println!("\x1b[?25h");
             io::stdout().flush().unwrap();
 
-            // display time progressed
-            println!("Counted up {}", Timerange::new(*count_up_seconds2.lock().unwrap()).print());
+            let count_up = *count_up_seconds2.lock().unwrap();
+
+            if count_up < wait_for {
+                // display time progressed
+                println!("Counted up {}", Timerange::new(count_up).print());
+            }
         },
         rdone.recv() => {
             println!("Program completed normally.");
