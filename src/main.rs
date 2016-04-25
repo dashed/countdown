@@ -37,7 +37,7 @@ const CLEAR_LINE: &'static str = "\r\x1b[?25l";
 fn main() {
 
     let cmd_matches = App::new("gtdtxt")
-        .version("v0.1.0 (semver.org)") // semver semantics
+        .version("v0.2.0 (semver.org)") // semver semantics
         .about("Countdown or countup program")
         .author("Alberto Leal <mailforalberto@gmail.com> (github.com/dashed)")
         .arg(
