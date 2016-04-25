@@ -38,7 +38,7 @@ fn main() {
 
     let cmd_matches = App::new("gtdtxt")
         .version("v0.1.0 (semver.org)") // semver semantics
-        .about("Countdown program")
+        .about("Countdown or countup program")
         .author("Alberto Leal <mailforalberto@gmail.com> (github.com/dashed)")
         .arg(
             Arg::with_name("note")
@@ -56,9 +56,16 @@ fn main() {
             })
         )
         .arg(
+            Arg::with_name("count-up")
+            .help("Count up.")
+            .short("u")
+            .long("count-up")
+            .required(false)
+        )
+        .arg(
             Arg::with_name("time-length")
             .help("Time length.")
-            .required(true)
+            .required(false)
             .index(1)
             .validator(|time_len| {
                 let time_len = time_len.trim();
@@ -70,24 +77,44 @@ fn main() {
             })
         ).get_matches();
 
-    let time_length: String = cmd_matches.value_of("time-length")
-                                                .unwrap()
-                                                .trim()
-                                                .to_string();
 
-    let wait_for = match parse_only(|i| time_length_parser(i), time_length.as_bytes()) {
-        Ok(result) => {
-            result
-        },
-        Err(e) => {
-            println!("Unable to parse: {}", time_length);
-            process::exit(1);
-            // TODO: refactor
-            // panic!("{:?}", e);
+    let wait_for = {
+
+        if !cmd_matches.is_present("time-length") {
+            0
+        } else {
+            let time_length: String = cmd_matches.value_of("time-length")
+                                                        .unwrap()
+                                                        .trim()
+                                                        .to_string();
+
+            let wait_for = match parse_only(|i| time_length_parser(i), time_length.as_bytes()) {
+                Ok(result) => {
+                    result
+                },
+                Err(e) => {
+                    println!("Unable to parse: {}", time_length);
+                    process::exit(1);
+                    // TODO: refactor
+                    // panic!("{:?}", e);
+                }
+            };
+
+            wait_for
         }
+
     };
 
-    println!("Counting down {}", Timerange::new(wait_for).print());
+
+
+    let count_request = if cmd_matches.is_present("count-up") {
+        println!("Counting up...");
+        Counter::CountUp
+    } else {
+        println!("Counting down {}", Timerange::new(wait_for).print());
+        Counter::CountDown(wait_for)
+    };
+
     println!("Began counting at {}", Local::now().naive_local().format("%B %e, %Y %-l:%M:%S %p"));
 
     if cmd_matches.is_present("note") {
@@ -102,7 +129,7 @@ fn main() {
     // When our work is complete, send a sentinel value on `sdone`.
     let (sdone, rdone) = chan::sync(0);
     // Run work.
-    ::std::thread::spawn(move || run(sdone, wait_for, count_up_seconds));
+    ::std::thread::spawn(move || run(sdone, count_request, count_up_seconds));
 
     // Wait for a signal or for work to be done.
     chan_select! {
@@ -115,10 +142,10 @@ fn main() {
 
             let count_up = *count_up_seconds2.lock().unwrap();
 
-            if count_up < wait_for {
-                // display time progressed
-                println!("Counted up {}", Timerange::new(count_up).print());
-            }
+            // if count_up < wait_for {
+            //     // display time progressed
+            //     println!("Counted up {}", Timerange::new(count_up).print());
+            // }
         },
         rdone.recv() => {
             println!("Program completed normally.");
@@ -127,7 +154,12 @@ fn main() {
 
 }
 
-fn run(_sdone: chan::Sender<()>, wait_for: u64, count_up_seconds: Arc<Mutex<u64>>) {
+enum Counter {
+    CountUp,
+    CountDown(u64)
+}
+
+fn run(_sdone: chan::Sender<()>, count_request: Counter, count_up_seconds: Arc<Mutex<u64>>) {
 
     let timer = timer::Timer::new();
 
@@ -144,47 +176,76 @@ fn run(_sdone: chan::Sender<()>, wait_for: u64, count_up_seconds: Arc<Mutex<u64>
     print!("\x1b[?25l");
     io::stdout().flush().unwrap();
 
-    let mut out = prep_pretty(Timerange::new(wait_for - seconds_passed).print());
+    let start = match count_request {
+        Counter::CountUp => 0,
+        Counter::CountDown(wait_for) => wait_for - seconds_passed
+    };
+
+    let mut out = prep_pretty(Timerange::new(start).print(), &count_request);
     print_line(out.clone());
 
-    if wait_for > 0 {
-        loop {
-            // Sleep for 250 ms (250000000 nanoseconds)
-            thread::sleep(std::time::Duration::new(0, 250000000));
 
-            // Fetch counts
-            let count_result = *count_up_seconds.lock().unwrap();
+    loop {
 
-            if count_result <= seconds_passed {
-                continue;
+        match count_request {
+            Counter::CountUp => {},
+            Counter::CountDown(wait_for) => {
+                if wait_for <= 0 {
+                    break;
+                }
             }
-
-            seconds_passed = count_result;
-            let diff: u64 = if seconds_passed > wait_for {
-                0
-            } else {
-                wait_for - seconds_passed
-            };
-
-
-            let new_out = prep_pretty(Timerange::new(diff).print());
-
-            let filler: String = if out.len() >= new_out.len() {
-                String::from_utf8(vec![b' '; out.len() - new_out.len()]).ok().unwrap()
-            } else{
-                "".to_string()
-            };
-
-            print_line(format!("{}{}", new_out, filler));
-
-            out = new_out;
-
-            if seconds_passed >= wait_for {
-                break;
-            }
-
         }
+
+        // Sleep for 250 ms (250000000 nanoseconds)
+        thread::sleep(std::time::Duration::new(0, 250000000));
+
+        // Fetch counts
+        let count_result = *count_up_seconds.lock().unwrap();
+
+        if count_result <= seconds_passed {
+            continue;
+        }
+
+        seconds_passed = count_result;
+
+        // amount of time remaining or passing
+        let diff: u64 = match count_request {
+            Counter::CountUp => seconds_passed,
+            Counter::CountDown(wait_for) => {
+                if seconds_passed > wait_for {
+                    0
+                } else {
+                    wait_for - seconds_passed
+                }
+            }
+        };
+
+
+        let new_out = prep_pretty(Timerange::new(diff).print(), &count_request);
+
+        let filler: String = if out.len() >= new_out.len() {
+            String::from_utf8(vec![b' '; out.len() - new_out.len()]).ok().unwrap()
+        } else{
+            "".to_string()
+        };
+
+        print_line(format!("{}{}", new_out, filler));
+
+        out = new_out;
+
+        // guard test
+        match count_request {
+            Counter::CountUp => {},
+            Counter::CountDown(wait_for) => {
+                if seconds_passed >= wait_for {
+                    break;
+                }
+            }
+        };
+
+
     }
+
 
     // turn cursor back on
     println!("\x1b[?25h");
@@ -410,8 +471,15 @@ fn string_ignore_case<'a>(i: Input<'a, u8>, s: &[u8])
     i.replace(&b[s.len()..]).ret(d)
 }
 
-fn prep_pretty(left: String) -> String {
-    format!("{} left", left)
+fn prep_pretty(left: String, count_request: &Counter) -> String {
+    match count_request {
+        &Counter::CountUp => {
+            format!("{} passed", left)
+        },
+        &Counter::CountDown(wait_for) => {
+            format!("{} left", left)
+        }
+    }
 }
 
 fn print_line(string: String) {
