@@ -142,10 +142,17 @@ fn main() {
 
             let count_up = *count_up_seconds2.lock().unwrap();
 
-            // if count_up < wait_for {
-            //     // display time progressed
-            //     println!("Counted up {}", Timerange::new(count_up).print());
-            // }
+            match count_request {
+                Counter::CountUp => {},
+                Counter::CountDown(wait_for) => {
+                    if count_up < wait_for {
+                        // display time progressed
+                        println!("Counted up {}", Timerange::new(count_up).print());
+                    }
+                }
+            }
+
+
         },
         rdone.recv() => {
             println!("Program completed normally.");
@@ -154,6 +161,7 @@ fn main() {
 
 }
 
+#[derive(Copy, Clone)]
 enum Counter {
     CountUp,
     CountDown(u64)
